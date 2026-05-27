@@ -10,7 +10,7 @@ they configure, including:
 - Decision-tree source workflow and Snakemake environment.
 - DIAMOND databases and FASTA sequence libraries.
 - AlphaFold DB foldcomp data.
-- Structure tools such as D-ITASSER, LOMETS, MODELLER, and optional D-MFold.
+- Structure tools such as D-I-TASSER, LOMETS, MODELLER, and optional DMFold.
 - Singularity or Apptainer.
 - StarFunc container and StarFunc database.
 
