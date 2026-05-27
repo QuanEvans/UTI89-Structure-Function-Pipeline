@@ -1,0 +1,29 @@
+# Template for users who already have high-confidence structures and only need
+# the standard layout plus StarFunc. This skips the decision-tree and
+# structure-prediction methods.
+
+run:
+  name: user_models_run
+  work_dir: /path/to/output/run
+  input_fasta: /path/to/input.fasta
+
+execution:
+  # Use "local" on a workstation or "slurm" on an HPC with Slurm.
+  backend: local
+  use_modules: false
+
+structure_prediction:
+  user_models:
+    # Option A: models are named by protein ID, for example P12345.pdb.
+    model_dir: /path/to/pdb-models
+    pattern: "{protein_id}.pdb"
+    link_models: true
+
+    # Option B: use a TSV with columns protein_id and model_path.
+    # mapping_file: /path/to/user_models.tsv
+
+function_prediction:
+  link_inputs: true
+  singularity_command: singularity
+  starfunc_sif: /path/to/StarFunc.sif
+  starfunc_database: /path/to/StarFunc/database

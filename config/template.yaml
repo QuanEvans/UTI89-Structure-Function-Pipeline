@@ -1,0 +1,49 @@
+# Generic template for running the full decision-tree -> structure -> StarFunc
+# pipeline. Copy this file and replace every /path/to/... value.
+
+run:
+  name: my_run
+  work_dir: /path/to/output/run
+  input_fasta: /path/to/input.fasta
+
+execution:
+  # Use "local" on a workstation or "slurm" on an HPC with Slurm.
+  backend: local
+  local_cores: 8
+  use_modules: false
+
+decision_tree:
+  source_dir: /path/to/upec-fxn-pred
+  conda_env: /path/to/upec-fxn-pred/conda-env
+  conda_executable: /path/to/conda
+  fasta_lib: /path/to/fasta-library
+  dmnd_lib: /path/to/diamond-databases
+  afdb_foldcomp: /path/to/afdb-foldcomp-database
+  pdb_min_seq_id: 0.95
+  af_min_seq_id: 0.9
+  af_min_plddt: 70
+  exact_seq_id_def: 1.0
+
+structure_prediction:
+  link_afdb_models: true
+  enabled_steps:
+    - GETSEQS
+    - AFDB
+    - MODELLER
+    - LOMETS
+    - DITASSER
+  tools:
+    singularity_command: singularity
+    seq2fun_sif: /path/to/seq2fun.sif
+    ditasser_pkgdir: /path/to/D-I-TASSER-2.0
+    itlib_dir: /path/to/ITLIB
+    scratch_bind: /path/to/scratch
+    # Optional; only required if DMFOLD is added to enabled_steps.
+    dmfold_base: /path/to/DMFold
+    dmfold_conda_env: /path/to/dmfold-conda-env
+
+function_prediction:
+  link_inputs: true
+  singularity_command: singularity
+  starfunc_sif: /path/to/StarFunc.sif
+  starfunc_database: /path/to/StarFunc/database

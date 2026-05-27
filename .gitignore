@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local environments
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Pipeline outputs
+runs/
+logs/
+*.out
+*.err
+*.log
+
+# Large scientific outputs
+*.pdb
+*.cif
+*.dmnd
+*.pkl
+!tests/data/**/*.pdb
+
+# External installs/databases supplied by users
+StarFunc_db/
+databases/
+external/
+
+# Local HPC validation configs
+config/lighthouse.*.yaml
+
+# Private working notes retained locally, not published
+private_docs/
