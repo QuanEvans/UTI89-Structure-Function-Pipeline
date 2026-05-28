@@ -1,8 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from scripts.setup_pdb_diamond import _read_protein_entries, _write_protein_fasta
+from scripts.setup_pdb_diamond import _download_first_available, _read_protein_entries, _write_protein_fasta
 
 
 class SetupPdbDiamondTests(unittest.TestCase):
@@ -33,6 +34,17 @@ class SetupPdbDiamondTests(unittest.TestCase):
                 output.read_text(encoding="utf-8"),
                 ">1abc_A mol:protein length:3\nMKT\n",
             )
+
+    def test_download_uses_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            output = Path(tempdir) / "pdb_seqres.txt"
+            with patch("scripts.setup_pdb_diamond.urllib.request.urlopen") as urlopen:
+                urlopen.return_value.__enter__.return_value.read.return_value = b">1abc_A\nMKT\n"
+
+                _download_first_available(["https://example.org/pdb_seqres.txt"], output, 12.5)
+
+            urlopen.assert_called_once_with("https://example.org/pdb_seqres.txt", timeout=12.5)
+            self.assertEqual(output.read_bytes(), b">1abc_A\nMKT\n")
 
 
 if __name__ == "__main__":

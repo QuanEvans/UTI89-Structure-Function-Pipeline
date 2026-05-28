@@ -100,7 +100,7 @@ class StructureTests(unittest.TestCase):
             self.assertEqual(len(result.prepared), 1)
             script = root / "structures" / "P00001" / "run_modeler.sh"
             text = script.read_text(encoding="utf-8")
-            self.assertIn("urllib.request.urlretrieve", text)
+            self.assertIn("urllib.request.urlopen(url, timeout=timeout)", text)
             self.assertIn("https://example.org/AF-P00001-F1-model_v6.cif", text)
             self.assertIn("import gemmi", text)
             self.assertIn("gemmi.read_structure", text)
@@ -136,7 +136,7 @@ class StructureTests(unittest.TestCase):
             script = root / "structures" / "P00001" / "fetch_afdb.sh"
             text = script.read_text(encoding="utf-8")
             self.assertIn("cd {}".format(root / "structures" / "P00001"), text)
-            self.assertIn("urllib.request.urlretrieve", text)
+            self.assertIn("urllib.request.urlopen(url, timeout=timeout)", text)
             self.assertIn("https://example.org/AF-P00001-F1-model_v6.cif", text)
             self.assertIn("import gemmi", text)
             self.assertIn("gemmi.read_structure", text)

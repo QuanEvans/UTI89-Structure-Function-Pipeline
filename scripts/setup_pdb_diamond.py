@@ -34,6 +34,12 @@ def main() -> int:
         action="store_true",
         help="Reuse existing pdb_seqres.txt and pdb_entry_type.txt in --out-dir.",
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=60.0,
+        help="Seconds to wait for each wwPDB download URL before trying the next mirror.",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir).expanduser().resolve()
@@ -45,8 +51,8 @@ def main() -> int:
     db_prefix = out_dir / "pdb"
 
     if not args.skip_download:
-        _download_first_available(SEQRES_URLS, seqres)
-        _download_first_available(ENTRY_TYPE_URLS, entry_types)
+        _download_first_available(SEQRES_URLS, seqres, args.timeout)
+        _download_first_available(ENTRY_TYPE_URLS, entry_types, args.timeout)
 
     if not seqres.is_file():
         raise FileNotFoundError("Missing PDB SEQRES FASTA: {}".format(seqres))
@@ -74,11 +80,11 @@ def main() -> int:
     return 0
 
 
-def _download_first_available(urls: list, destination: Path) -> None:
+def _download_first_available(urls: list, destination: Path, timeout: float) -> None:
     errors = []
     for url in urls:
         try:
-            _download(url, destination)
+            _download(url, destination, timeout)
             return
         except Exception as exc:
             errors.append("{}: {}".format(url, exc))
@@ -89,10 +95,10 @@ def _download_first_available(urls: list, destination: Path) -> None:
     )
 
 
-def _download(url: str, destination: Path) -> None:
+def _download(url: str, destination: Path, timeout: float) -> None:
     tmp = destination.with_suffix(destination.suffix + ".tmp")
     print("Downloading {} -> {}".format(url, destination))
-    with urllib.request.urlopen(url) as response, tmp.open("wb") as handle:
+    with urllib.request.urlopen(url, timeout=timeout) as response, tmp.open("wb") as handle:
         handle.write(response.read())
     tmp.replace(destination)
 

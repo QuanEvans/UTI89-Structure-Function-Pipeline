@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, Iterator, NamedTuple, Optional, Tuple
+from urllib.parse import unquote
 
 
 class Decision(NamedTuple):
@@ -56,5 +57,5 @@ def split_match_metadata(match: str) -> Tuple[str, Dict[str, str]]:
         if "=" not in item:
             continue
         key, value = item.split("=", 1)
-        metadata[key] = value
+        metadata[key] = unquote(value)
     return parts[0], metadata

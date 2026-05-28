@@ -309,18 +309,22 @@ def _write_modeler_sbatch(
 ) -> Path:
     tools = _structure_tools(config)
     fetch_template = ""
+    timeout = _model_download_timeout(config)
     if template_url:
         fetch_template = """
 if [ ! -s template.pdb ]; then
     python3 - <<'PY'
 from pathlib import Path
+import shutil
 import urllib.parse
 import urllib.request
 
 url = {template_url!r}
+timeout = {timeout!r}
 suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
 download = "template" + (suffix if suffix else ".pdb")
-urllib.request.urlretrieve(url, download)
+with urllib.request.urlopen(url, timeout=timeout) as response, open(download, "wb") as handle:
+    shutil.copyfileobj(response, handle)
 if suffix in (".cif", ".bcif"):
     import gemmi
     structure = gemmi.read_structure(download)
@@ -329,7 +333,7 @@ else:
     Path(download).replace("template.pdb")
 PY
 fi
-""".format(template_url=template_url)
+""".format(template_url=template_url, timeout=timeout)
     body = """#!/bin/bash
 set -euo pipefail
 {slurm_header}
@@ -400,9 +404,10 @@ def _afdb_fetch_script(
     config: Dict[str, Any],
     protein_id: str,
     protein_dir: Path,
-    pdb_url: str,
+    model_url: str,
     output_name: str,
 ) -> str:
+    timeout = _model_download_timeout(config)
     return """#!/bin/bash
 set -euo pipefail
 {slurm_header}
@@ -411,14 +416,17 @@ cd {workdir}
 
 python3 - <<'PY'
 from pathlib import Path
+import shutil
 import urllib.parse
 import urllib.request
 
-url = {pdb_url!r}
+url = {model_url!r}
+timeout = {timeout!r}
 output = Path({output_name!r})
 suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
 download = output.with_suffix(suffix if suffix else ".pdb")
-urllib.request.urlretrieve(url, str(download))
+with urllib.request.urlopen(url, timeout=timeout) as response, open(download, "wb") as handle:
+    shutil.copyfileobj(response, handle)
 if suffix in (".cif", ".bcif"):
     import gemmi
     structure = gemmi.read_structure(str(download))
@@ -438,7 +446,8 @@ PY
             mem="1G",
         ),
         workdir=shlex.quote(str(protein_dir)),
-        pdb_url=pdb_url,
+        model_url=model_url,
+        timeout=timeout,
         output_name=output_name,
     )
 
@@ -456,7 +465,24 @@ def _afdb_url_for_decision(decision: Decision) -> str:
 def _afdb_model_id(match: str) -> Optional[str]:
     if not match or not match.startswith("AFDB:"):
         return None
-    return match.split(":", 1)[1].split("|", 1)[0]
+    return _strip_afdb_model_suffix(match.split(":", 1)[1].split("|", 1)[0])
+
+
+def _strip_afdb_model_suffix(match: str) -> str:
+    for suffix in (".pdb", ".cif", ".bcif"):
+        if match.endswith(suffix):
+            match = match[: -len(suffix)]
+            break
+    marker = "-model_v"
+    if marker in match:
+        return match.split(marker, 1)[0]
+    return match
+
+
+def _model_download_timeout(config: Dict[str, Any]) -> float:
+    structure_cfg = config.get("structure_prediction", {})
+    decision_cfg = config.get("decision_tree", {})
+    return float(structure_cfg.get("model_download_timeout", decision_cfg.get("afdb_api_timeout", 30)))
 
 
 def _write_script(path: Path, body: str) -> Path:

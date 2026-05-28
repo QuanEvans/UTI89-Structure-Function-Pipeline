@@ -541,7 +541,9 @@ def _is_better_match(candidate: Match, current: Match) -> bool:
 
 
 def _normalize_match(match: str, source: str) -> str:
-    if source == "AFDB" and match and not match.startswith("AFDB:"):
+    if source == "AFDB" and match:
+        if match.startswith("AFDB:"):
+            return "AFDB:{}".format(_strip_afdb_model_suffix(match.split(":", 1)[1]))
         return "AFDB:{}".format(_strip_afdb_model_suffix(match))
     return match
 

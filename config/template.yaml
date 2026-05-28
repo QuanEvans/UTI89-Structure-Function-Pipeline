@@ -22,13 +22,14 @@ decision_tree:
   afdb_sequence_rows: 20
   # Optional precomputed hit reports. Columns may include protein_id, match,
   # seq_id, query_coverage, target_coverage, qlen, slen, plddt, and pdb_path.
-  # pdb_path can be a local PDB path or an HTTP(S) URL for AFDB templates.
+  # pdb_path is only used when it is an HTTP(S) AFDB model URL.
   # afdb_hits_tsv: /path/to/afdb_hits.tsv
   # pdb_hits_tsv: /path/to/pdb_hits.tsv
   # Optional local PDB DIAMOND database. Create it with
   # scripts/setup_pdb_diamond.py --out-dir /path/to/pdb-diamond
   # pdb_dmnd: /path/to/pdb-diamond/pdb.dmnd
   # diamond_executable: /path/to/diamond
+  afdb_api_timeout: 30
   pdb_min_seq_id: 0.95
   pdb_min_query_coverage: 0.8
   af_min_seq_id: 0.9
@@ -38,6 +39,8 @@ decision_tree:
   af_exact_seq_id: 1.0
 
 structure_prediction:
+  # Reuses decision_tree.afdb_api_timeout by default for AFDB model downloads.
+  # model_download_timeout: 30
   enabled_steps:
     - GETSEQS
     - AFDB
