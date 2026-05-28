@@ -65,7 +65,7 @@ def main() -> int:
     parser.add_argument(
         "--decision-dry-run",
         action="store_true",
-        help="Dry-run only the decision-tree Snakemake stage.",
+        help="Dry-run only the native decision-tree stage.",
     )
     parser.add_argument(
         "--force",
@@ -141,7 +141,7 @@ def _apply_work_dir_override(config, work_dir: str) -> None:
     """Point derived stage paths at the overridden run directory."""
     config.setdefault("run", {})["work_dir"] = work_dir
     for section, keys in {
-        "structure_prediction": ("output_dir", "decision_file", "afdb_pdb_dir"),
+        "structure_prediction": ("output_dir", "decision_file"),
         "function_prediction": ("structure_dir", "output_dir", "decision_file"),
     }.items():
         section_cfg = config.get(section)

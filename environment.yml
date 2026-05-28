@@ -1,0 +1,11 @@
+name: uti89-structure-function
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.11
+  - pip
+  - pyyaml>=6
+  - diamond>=2.1
+  - gemmi>=0.6
+  - pytest>=7

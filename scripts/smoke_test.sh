@@ -16,7 +16,28 @@ fi
 OWN_MODEL_DIR="$SMOKE_RUN_DIR/user_models"
 OWN_MODEL_CONFIG="$SMOKE_RUN_DIR/user_models.yaml"
 OWN_MODEL_RUN_DIR="$SMOKE_RUN_DIR/user_model_run"
+DECISION_CONFIG="$SMOKE_RUN_DIR/decision_tree.yaml"
+DECISION_RUN_DIR="$SMOKE_RUN_DIR/decision_tree_run"
 mkdir -p "$OWN_MODEL_DIR"
+cat > "$DECISION_CONFIG" <<EOF
+run:
+  name: decision_tree_smoke
+  work_dir: $DECISION_RUN_DIR
+  input_fasta: $PWD/examples/smoke.fasta
+execution:
+  backend: local
+decision_tree:
+  use_afdb_api: false
+structure_prediction:
+  enabled_steps:
+    - DITASSER
+EOF
+python3 scripts/run_pipeline.py \
+    --config "$DECISION_CONFIG" \
+    --work-dir "$DECISION_RUN_DIR" \
+    --stop-after decision
+test -s "$DECISION_RUN_DIR/decision_tree_intermediates/decide/decisions.txt"
+
 printf 'HEADER SMOKE USER MODEL\nEND\n' > "$OWN_MODEL_DIR/myprot.pdb"
 cat > "$OWN_MODEL_CONFIG" <<EOF
 run:

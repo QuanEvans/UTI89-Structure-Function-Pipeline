@@ -10,7 +10,6 @@ class RunPipelineTests(unittest.TestCase):
             "structure_prediction": {
                 "output_dir": "/old/structures",
                 "decision_file": "/old/decisions.txt",
-                "afdb_pdb_dir": "/old/pdb",
                 "enabled_steps": ["AFDB"],
             },
             "function_prediction": {
@@ -26,7 +25,7 @@ class RunPipelineTests(unittest.TestCase):
         self.assertEqual(config["run"]["work_dir"], "/new")
         self.assertEqual(config["structure_prediction"]["enabled_steps"], ["AFDB"])
         self.assertEqual(config["function_prediction"]["starfunc_sif"], "/example/StarFunc.sif")
-        for key in ("output_dir", "decision_file", "afdb_pdb_dir"):
+        for key in ("output_dir", "decision_file"):
             self.assertNotIn(key, config["structure_prediction"])
         for key in ("structure_dir", "output_dir", "decision_file"):
             self.assertNotIn(key, config["function_prediction"])
