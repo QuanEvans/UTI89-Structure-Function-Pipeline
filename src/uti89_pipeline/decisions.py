@@ -1,7 +1,7 @@
 """Decision-file parsing."""
 
 from pathlib import Path
-from typing import Dict, Iterator, NamedTuple, Optional
+from typing import Dict, Iterator, NamedTuple, Optional, Tuple
 
 
 class Decision(NamedTuple):
@@ -40,10 +40,21 @@ def read_decision_map(path: Path) -> Dict[str, Decision]:
     return {decision.protein_id: decision for decision in read_decisions(path)}
 
 
-def afdb_model_filename(match: str) -> Optional[str]:
-    """Return the AFDB model filename implied by a decision match field."""
-    if not match or not match.startswith("AFDB:"):
-        return None
-    af_name = match.split(":", 1)[1]
-    return "{}-model_v4.pdb".format(af_name)
+def afdb_model_url(match: str) -> Optional[str]:
+    """Return an AFDB model URL carried in a decision match field, if present."""
+    _base_match, metadata = split_match_metadata(match)
+    return metadata.get("model_url") or metadata.get("pdb_url")
 
+
+def split_match_metadata(match: str) -> Tuple[str, Dict[str, str]]:
+    """Split a match field into its primary match token and optional key/value metadata."""
+    if not match:
+        return "", {}
+    parts = match.split("|")
+    metadata = {}  # type: Dict[str, str]
+    for item in parts[1:]:
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        metadata[key] = value
+    return parts[0], metadata

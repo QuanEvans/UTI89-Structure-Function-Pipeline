@@ -6,7 +6,7 @@ import os
 import shlex
 
 from .config import get_required
-from .decisions import Decision, afdb_model_filename, read_decision_map
+from .decisions import Decision, afdb_model_url, read_decision_map
 from .execution import module_load_line, script_suffix, slurm_header, submit_script
 from .fasta import protein_id_from_header, read_fasta_records, write_single_record
 
@@ -51,13 +51,7 @@ def prepare_structure_predictions(
             str(run_dir / "decision_tree_intermediates" / "decide" / "decisions.txt"),
         )
     ).expanduser().resolve()
-    afdb_pdb_dir = Path(
-        structure_cfg.get(
-            "afdb_pdb_dir", str(run_dir / "decision_tree_intermediates" / "pdb")
-        )
-    ).expanduser().resolve()
     enabled_steps = set(structure_cfg.get("enabled_steps", ["GETSEQS", "AFDB"]))
-    link_afdb_models = bool(structure_cfg.get("link_afdb_models", True))
 
     if not decision_file.is_file():
         raise FileNotFoundError("Missing decision file: {}".format(decision_file))
@@ -86,9 +80,7 @@ def prepare_structure_predictions(
             config=config,
             decision=decision,
             protein_dir=protein_dir,
-            afdb_pdb_dir=afdb_pdb_dir,
             enabled_steps=enabled_steps,
-            link_afdb_models=link_afdb_models,
         )
         if script_path is None:
             skipped.append(
@@ -197,15 +189,13 @@ def _prepare_one_structure_job(
     config: Dict[str, Any],
     decision: Decision,
     protein_dir: Path,
-    afdb_pdb_dir: Path,
     enabled_steps: set,
-    link_afdb_models: bool,
 ) -> Optional[Path]:
-    if decision.method == "COFACTOR" and "AFDB" in enabled_steps:
-        return _prepare_afdb_model(config, decision, protein_dir, afdb_pdb_dir, link_afdb_models)
+    if decision.method == "AFDB" and "AFDB" in enabled_steps:
+        return _prepare_afdb_model(config, decision, protein_dir)
     if decision.method == "MODELLER" and "MODELLER" in enabled_steps:
-        _prepare_afdb_template(decision, protein_dir, afdb_pdb_dir, link_afdb_models)
-        return _write_modeler_sbatch(config, decision.protein_id, protein_dir)
+        template_url = _afdb_url_for_decision(decision)
+        return _write_modeler_sbatch(config, decision.protein_id, protein_dir, template_url)
     if decision.method == "LOMETS" and "LOMETS" in enabled_steps:
         return _write_lomets_sbatch(config, decision.protein_id, protein_dir)
     if decision.method == "DITASSER" and "DITASSER" in enabled_steps:
@@ -219,41 +209,20 @@ def _prepare_afdb_model(
     config: Dict[str, Any],
     decision: Decision,
     protein_dir: Path,
-    afdb_pdb_dir: Path,
-    link_afdb_models: bool,
 ) -> Path:
-    filename = afdb_model_filename(decision.match)
-    if filename is None:
-        raise ValueError("Decision does not contain an AFDB match: {}".format(decision))
-    source = afdb_pdb_dir / filename
-    target = protein_dir / "model1.pdb"
-    if source.exists():
-        _link_or_copy(source, target, link_afdb_models)
-        marker = protein_dir / "use_afdb_model.done"
-        marker.write_text(str(source) + "\n", encoding="utf-8")
-        return marker
+    url = _afdb_url_for_decision(decision)
     script = protein_dir / ("fetch_afdb" + script_suffix(config))
     script.write_text(
         _afdb_fetch_script(
             config,
             decision.protein_id,
-            decision.match,
+            protein_dir,
+            url,
+            "model1.pdb",
         ),
         encoding="utf-8",
     )
     return script
-
-
-def _prepare_afdb_template(
-    decision: Decision, protein_dir: Path, afdb_pdb_dir: Path, link_afdb_models: bool
-) -> None:
-    filename = afdb_model_filename(decision.match)
-    if filename is None:
-        raise ValueError("MODELLER decision does not contain an AFDB match: {}".format(decision))
-    source = afdb_pdb_dir / filename
-    target = protein_dir / "template.pdb"
-    if source.exists():
-        _link_or_copy(source, target, link_afdb_models)
 
 
 def _link_or_copy(source: Path, target: Path, use_symlink: bool) -> None:
@@ -332,14 +301,42 @@ cd {workdir}
     return _write_script(protein_dir / ("run_lomets" + script_suffix(config)), body)
 
 
-def _write_modeler_sbatch(config: Dict[str, Any], protein_id: str, protein_dir: Path) -> Path:
+def _write_modeler_sbatch(
+    config: Dict[str, Any],
+    protein_id: str,
+    protein_dir: Path,
+    template_url: Optional[str] = None,
+) -> Path:
     tools = _structure_tools(config)
+    fetch_template = ""
+    if template_url:
+        fetch_template = """
+if [ ! -s template.pdb ]; then
+    python3 - <<'PY'
+from pathlib import Path
+import urllib.parse
+import urllib.request
+
+url = {template_url!r}
+suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
+download = "template" + (suffix if suffix else ".pdb")
+urllib.request.urlretrieve(url, download)
+if suffix in (".cif", ".bcif"):
+    import gemmi
+    structure = gemmi.read_structure(download)
+    structure.write_pdb("template.pdb")
+else:
+    Path(download).replace("template.pdb")
+PY
+fi
+""".format(template_url=template_url)
     body = """#!/bin/bash
 set -euo pipefail
 {slurm_header}
 
 cd {workdir}
 {module_load}
+{fetch_template}
 
 {singularity} exec -B {scratch_bind}:/tmp -B {workdir}:{workdir} -B {pkgdir}:/D-ITASSER-2.0:ro {sif} perl /I-TASSERmod/modeler/modeller_sw.pl {workdir}/seq.fasta {workdir}/template.pdb {workdir}/model1.pdb 0
 """.format(
@@ -359,6 +356,7 @@ cd {workdir}
         sif=shlex.quote(tools["seq2fun_sif"]),
         singularity=shlex.quote(tools["singularity_command"]),
         module_load=module_load_line(config, tools["singularity_module"]),
+        fetch_template=fetch_template,
     )
     return _write_script(protein_dir / ("run_modeler" + script_suffix(config)), body)
 
@@ -398,18 +396,36 @@ cd {workdir}
     return _write_script(protein_dir / ("run_dmfold" + script_suffix(config)), body)
 
 
-def _afdb_fetch_script(config: Dict[str, Any], protein_id: str, match: str) -> str:
-    af_name = match.split(":", 1)[1]
-    pdb_file = "{}-model_v4.pdb".format(af_name)
-    json_file = "{}-confidence_v4.json".format(af_name)
+def _afdb_fetch_script(
+    config: Dict[str, Any],
+    protein_id: str,
+    protein_dir: Path,
+    pdb_url: str,
+    output_name: str,
+) -> str:
     return """#!/bin/bash
 set -euo pipefail
 {slurm_header}
 
-wget https://alphafold.ebi.ac.uk/files/{pdb_file}
-mv {pdb_file} model1.pdb
-wget https://alphafold.ebi.ac.uk/files/{json_file}
-mv {json_file} confidence.json
+cd {workdir}
+
+python3 - <<'PY'
+from pathlib import Path
+import urllib.parse
+import urllib.request
+
+url = {pdb_url!r}
+output = Path({output_name!r})
+suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
+download = output.with_suffix(suffix if suffix else ".pdb")
+urllib.request.urlretrieve(url, str(download))
+if suffix in (".cif", ".bcif"):
+    import gemmi
+    structure = gemmi.read_structure(str(download))
+    structure.write_pdb(str(output))
+else:
+    download.replace(output)
+PY
 """.format(
         protein_id=protein_id,
         slurm_header=slurm_header(
@@ -421,9 +437,26 @@ mv {json_file} confidence.json
             time="01:00:00",
             mem="1G",
         ),
-        pdb_file=pdb_file,
-        json_file=json_file,
+        workdir=shlex.quote(str(protein_dir)),
+        pdb_url=pdb_url,
+        output_name=output_name,
     )
+
+
+def _afdb_url_for_decision(decision: Decision) -> str:
+    url = afdb_model_url(decision.match)
+    if url:
+        return url
+    model_id = _afdb_model_id(decision.match)
+    if model_id is None:
+        raise ValueError("Decision does not contain an AFDB match: {}".format(decision))
+    return "https://alphafold.ebi.ac.uk/files/{}-model_v6.cif".format(model_id)
+
+
+def _afdb_model_id(match: str) -> Optional[str]:
+    if not match or not match.startswith("AFDB:"):
+        return None
+    return match.split(":", 1)[1].split("|", 1)[0]
 
 
 def _write_script(path: Path, body: str) -> Path:
@@ -451,4 +484,3 @@ def _required_tool(cfg: Dict[str, Any], key: str) -> str:
     if key not in cfg or not cfg[key]:
         raise KeyError("Missing required structure_prediction.tools.{} config".format(key))
     return cfg[key]
-

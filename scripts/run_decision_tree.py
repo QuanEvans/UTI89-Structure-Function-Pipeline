@@ -23,28 +23,19 @@ def main() -> int:
     parser.add_argument(
         "--prepare-only",
         action="store_true",
-        help="Prepare the isolated run directory but do not invoke Snakemake.",
+        help="Prepare the decision-tree run directory but do not write decisions.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Pass -n to Snakemake after preparing the run directory.",
+        help="Write a decision-tree plan without running external searches or writing decisions.",
     )
     parser.add_argument(
         "--unlock",
         action="store_true",
-        help="Pass --unlock to Snakemake for this run directory.",
-    )
-    parser.add_argument(
-        "snakemake_args",
-        nargs=argparse.REMAINDER,
-        help="Additional arguments passed to Snakemake after --.",
+        help="Accepted for compatibility with older configs; this is a no-op.",
     )
     args = parser.parse_args()
-
-    extra_args = args.snakemake_args
-    if extra_args and extra_args[0] == "--":
-        extra_args = extra_args[1:]
 
     config = load_config(args.config)
     run = prepare_decision_tree_run(config)
@@ -52,17 +43,12 @@ def main() -> int:
     print(f"Prepared decision-tree run directory: {run.work_dir}")
     print(f"Intermediate directory: {run.pipeline_files}")
     print(f"Expected decisions file: {run.decisions}")
-    print("Snakemake command:")
+    print("Decision-tree command:")
     print(format_command(run.command, run.work_dir))
 
     if args.prepare_only:
         return 0
-    return run_decision_tree(
-        run,
-        dry_run=args.dry_run,
-        unlock=args.unlock,
-        extra_args=extra_args,
-    )
+    return run_decision_tree(run, dry_run=args.dry_run, unlock=args.unlock)
 
 
 if __name__ == "__main__":

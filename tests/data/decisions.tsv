@@ -1,3 +1,2 @@
-P00001	COFACTOR	AFDB:AF-P00001-F1	1.0	af_exact
-P00002	DITASSER		0	no_af
-
+P00001	AFDB	AFDB:AF-P00001-F1|model_url=https://alphafold.ebi.ac.uk/files/AF-P00001-F1-model_v6.cif	1.0	afdb_exact_high_confidence
+P00002	DITASSER		0	no_high_confidence_template

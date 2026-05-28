@@ -1,0 +1,9 @@
+name: uti89-decision-tree
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.11
+  - pyyaml>=6
+  - diamond>=2.1
+  - gemmi>=0.6

@@ -13,19 +13,31 @@ execution:
   use_modules: false
 
 decision_tree:
-  source_dir: /path/to/upec-fxn-pred
-  conda_env: /path/to/upec-fxn-pred/conda-env
+  # The decision tree is implemented in this repository. It can use supplied
+  # hit reports, AlphaFold DB API accession lookups, AlphaFold DB API sequence
+  # lookup, and/or a local PDB DIAMOND database.
   conda_executable: /path/to/conda
-  fasta_lib: /path/to/fasta-library
-  dmnd_lib: /path/to/diamond-databases
-  afdb_foldcomp: /path/to/afdb-foldcomp-database
+  use_afdb_api: true
+  afdb_sequence_search: true
+  afdb_sequence_rows: 20
+  # Optional precomputed hit reports. Columns may include protein_id, match,
+  # seq_id, query_coverage, target_coverage, qlen, slen, plddt, and pdb_path.
+  # pdb_path can be a local PDB path or an HTTP(S) URL for AFDB templates.
+  # afdb_hits_tsv: /path/to/afdb_hits.tsv
+  # pdb_hits_tsv: /path/to/pdb_hits.tsv
+  # Optional local PDB DIAMOND database. Create it with
+  # scripts/setup_pdb_diamond.py --out-dir /path/to/pdb-diamond
+  # pdb_dmnd: /path/to/pdb-diamond/pdb.dmnd
+  # diamond_executable: /path/to/diamond
   pdb_min_seq_id: 0.95
+  pdb_min_query_coverage: 0.8
   af_min_seq_id: 0.9
+  af_min_query_coverage: 0.8
+  af_min_target_coverage: 0.8
   af_min_plddt: 70
-  exact_seq_id_def: 1.0
+  af_exact_seq_id: 1.0
 
 structure_prediction:
-  link_afdb_models: true
   enabled_steps:
     - GETSEQS
     - AFDB

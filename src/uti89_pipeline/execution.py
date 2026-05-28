@@ -43,60 +43,6 @@ def submit_script(config: Dict[str, Any], script: Path, cwd: Path) -> None:
     subprocess.check_call(command, cwd=str(cwd))
 
 
-def snakemake_profile(config: Dict[str, Any], include_cluster_status: bool) -> Dict[str, Any]:
-    """Build a Snakemake profile for the configured backend."""
-    if not is_slurm(config):
-        execution_cfg = config.get("execution", {})
-        return {
-            "cores": local_cores(config),
-            "printshellcmds": True,
-            "latency-wait": execution_cfg.get("latency_wait", 60),
-            "scheduler": execution_cfg.get("scheduler", "greedy"),
-            "keep-going": True,
-            "rerun-incomplete": True,
-        }
-
-    slurm = _slurm_config(config)
-    submitted_time = slurm.get("submitted_time", "{resources.time}")
-    cluster_command = (
-        "mkdir -p logs/{rule} && "
-        "sbatch "
-        "--partition={resources.queue} "
-        "--cpus-per-task={threads} "
-        "--ntasks-per-core={resources.ntasks_per_core} "
-        "--ntasks-per-node={resources.ntasks_per_node} "
-        "--nodes={resources.nodes} "
-        "--mem={resources.mem_mb} "
-        "--job-name={rule}-%j "
-        "--output=logs/{rule}/{rule}-%j.out "
-        "--time=__SUBMITTED_TIME__ "
-        "--account={resources.account} "
-        "--parsable"
-    ).replace("__SUBMITTED_TIME__", str(submitted_time))
-    profile = {
-        "jobs": slurm.get("jobs", 2000),
-        "default-resources": [
-            f'queue="{slurm["partition"]}"',
-            f'account="{slurm["account"]}"',
-            f'mem_mb={slurm.get("mem_mb", 1000)}',
-            f'time="{slurm.get("time", "01:00:00")}"',
-            f'ntasks_per_core={slurm.get("ntasks_per_core", 1)}',
-            f'ntasks_per_node={slurm.get("ntasks_per_node", 1)}',
-            f'nodes={slurm.get("nodes", 1)}',
-        ],
-        "cluster": cluster_command,
-        "cluster-cancel": "scancel",
-        "printshellcmds": True,
-        "latency-wait": slurm.get("latency_wait", 60),
-        "scheduler": slurm.get("scheduler", "greedy"),
-        "keep-going": True,
-        "rerun-incomplete": True,
-    }
-    if include_cluster_status:
-        profile["cluster-status"] = ".smk_profile/cluster_status.py"
-    return profile
-
-
 def slurm_header(
     config: Dict[str, Any],
     job_name: str,
